@@ -46,6 +46,20 @@ func (b *AlertmanagerWebSpecApplyConfiguration) WithHTTPConfig(value *WebHTTPCon
 	return b
 }
 
+// WithBasicAuthUsers puts the entries into the BasicAuthUsers field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, the entries provided by each call will be put on the BasicAuthUsers field,
+// overwriting an existing map entries in BasicAuthUsers field with the same key.
+func (b *AlertmanagerWebSpecApplyConfiguration) WithBasicAuthUsers(entries map[string]string) *AlertmanagerWebSpecApplyConfiguration {
+	if b.BasicAuthUsers == nil && len(entries) > 0 {
+		b.BasicAuthUsers = make(map[string]string, len(entries))
+	}
+	for k, v := range entries {
+		b.BasicAuthUsers[k] = v
+	}
+	return b
+}
+
 // WithGetConcurrency sets the GetConcurrency field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the GetConcurrency field is set to the value of the last call.

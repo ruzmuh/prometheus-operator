@@ -8494,6 +8494,13 @@
                   "web": {
                     "description": "Defines the configuration of the Prometheus web server.",
                     "properties": {
+                      "basicAuthUsers": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Defines basic auth users for web server.",
+                        "type": "object"
+                      },
                       "httpConfig": {
                         "description": "Defines HTTP parameters for web server.",
                         "properties": {

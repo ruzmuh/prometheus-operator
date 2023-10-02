@@ -14123,6 +14123,19 @@ WebHTTPConfig
 <p>Defines HTTP parameters for web server.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>basicAuthUsers</code><br/>
+<em>
+<a>
+map[string]string
+</a>
+</em>
+</td>
+<td>
+<p>Defines pairs of usernames and passwords for basic authentication. The password is provided in plain text, as it is necessary for liveness, readiness and startup probes.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="monitoring.coreos.com/v1.WebHTTPConfig">WebHTTPConfig

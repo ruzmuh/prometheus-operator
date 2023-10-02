@@ -15,6 +15,7 @@
 package prometheusagent
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/url"
 	"path"
@@ -264,6 +265,24 @@ func makeStatefulSetSpec(
 		TimeoutSeconds:   prompkg.ProbeTimeoutSeconds,
 		PeriodSeconds:    5,
 		FailureThreshold: 6,
+	}
+
+	// Add an authorization header for probes in case of basicAuthUsers are configured
+	if cpf.Web != nil && cpf.Web.BasicAuthUsers != nil && len(cpf.Web.BasicAuthUsers) != 0 && webConfigGenerator.IsCompatible() {
+		var probeHeaders []v1.HTTPHeader
+		for k, v := range cpf.Web.BasicAuthUsers {
+			b64 := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", k, v)))
+			probeHeaders = []v1.HTTPHeader{
+				{
+					Name:  "Authorization",
+					Value: fmt.Sprintf("Basic %s", b64),
+				},
+			}
+			break
+		}
+		livenessProbe.HTTPGet.HTTPHeaders = probeHeaders
+		readinessProbe.HTTPGet.HTTPHeaders = probeHeaders
+		startupProbe.HTTPGet.HTTPHeaders = probeHeaders
 	}
 
 	podAnnotations, podLabels := prompkg.BuildPodMetadata(cpf, cg)

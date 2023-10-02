@@ -15,6 +15,7 @@
 package alertmanager
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/url"
 	"path"
@@ -331,6 +332,23 @@ func makeStatefulSetSpec(a *monitoringv1.Alertmanager, config Config, tlsAssetSe
 			Path: path.Clean(webRoutePrefix + "/-/ready"),
 			Port: intstr.FromString(a.Spec.PortName),
 		},
+	}
+
+	// Add an authorization header for probes in case of basicAuthUsers are configured
+	if a.Spec.Web != nil && a.Spec.Web.BasicAuthUsers != nil && len(a.Spec.Web.BasicAuthUsers) != 0 && version.GTE(semver.MustParse("0.22.0")) {
+		var probeHeaders []v1.HTTPHeader
+		for k, v := range a.Spec.Web.BasicAuthUsers {
+			b64 := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", k, v)))
+			probeHeaders = []v1.HTTPHeader{
+				{
+					Name:  "Authorization",
+					Value: fmt.Sprintf("Basic %s", b64),
+				},
+			}
+			break
+		}
+		livenessProbeHandler.HTTPGet.HTTPHeaders = probeHeaders
+		readinessProbeHandler.HTTPGet.HTTPHeaders = probeHeaders
 	}
 
 	var livenessProbe *v1.Probe

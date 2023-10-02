@@ -20,6 +20,7 @@ import (
 	"path"
 	"strings"
 
+	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,6 +43,7 @@ var (
 type Config struct {
 	tlsConfig      *monitoringv1.WebTLSConfig
 	httpConfig     *monitoringv1.WebHTTPConfig
+	basicAuthUsers map[string]string
 	tlsCredentials *tlsCredentials
 	mountingDir    string
 	secretName     string
@@ -63,6 +65,7 @@ func New(mountingDir string, secretName string, configFileFields monitoringv1.We
 	return &Config{
 		tlsConfig:      tlsConfig,
 		httpConfig:     configFileFields.HTTPConfig,
+		basicAuthUsers: configFileFields.BasicAuthUsers,
 		tlsCredentials: tlsCreds,
 		mountingDir:    mountingDir,
 		secretName:     secretName,
@@ -123,7 +126,7 @@ func (c Config) CreateOrUpdateWebConfigSecret(ctx context.Context, secretClient 
 }
 
 func (c Config) generateConfigFileContents() ([]byte, error) {
-	if c.tlsConfig == nil && c.httpConfig == nil {
+	if c.tlsConfig == nil && c.httpConfig == nil && len(c.basicAuthUsers) == 0 {
 		return []byte{}, nil
 	}
 
@@ -131,6 +134,10 @@ func (c Config) generateConfigFileContents() ([]byte, error) {
 
 	cfg = c.addTLSServerConfigToYaml(cfg)
 	cfg = c.addHTTPServerConfigToYaml(cfg)
+	cfg, err := c.addBasicAuthUsers(cfg)
+	if err != nil {
+		return []byte{}, err
+	}
 
 	return yaml.Marshal(cfg)
 }
@@ -252,6 +259,23 @@ func (c Config) addHTTPServerConfigToYaml(cfg yaml.MapSlice) yaml.MapSlice {
 	httpServerConfig = append(httpServerConfig, yaml.MapItem{Key: "headers", Value: headersConfig})
 
 	return append(cfg, yaml.MapItem{Key: "http_server_config", Value: httpServerConfig})
+}
+
+func (c Config) addBasicAuthUsers(cfg yaml.MapSlice) (yaml.MapSlice, error) {
+	users := c.basicAuthUsers
+	if len(users) == 0 {
+		return cfg, nil
+	}
+
+	basicAuthUsersConfig := yaml.MapSlice{}
+	for k, v := range c.basicAuthUsers {
+		hash, err := bcrypt.GenerateFromPassword([]byte(v), 10)
+		if err != nil {
+			return cfg, err
+		}
+		basicAuthUsersConfig = append(basicAuthUsersConfig, yaml.MapItem{Key: k, Value: string(hash)})
+	}
+	return append(cfg, yaml.MapItem{Key: "basic_auth_users", Value: basicAuthUsersConfig}), nil
 }
 
 func (c Config) makeArg(filePath string) monitoringv1.Argument {

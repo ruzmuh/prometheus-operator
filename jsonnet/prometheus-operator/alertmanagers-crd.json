@@ -6223,6 +6223,13 @@
                   "web": {
                     "description": "Defines the web command line flags when starting Alertmanager.",
                     "properties": {
+                      "basicAuthUsers": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Defines basic auth users for web server.",
+                        "type": "object"
+                      },
                       "getConcurrency": {
                         "description": "Maximum number of GET requests processed concurrently. This corresponds to the Alertmanager's `--web.get-concurrency` flag.",
                         "format": "int32",

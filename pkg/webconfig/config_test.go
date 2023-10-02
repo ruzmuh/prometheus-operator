@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"github.com/kylelemons/godebug/pretty"
+	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/yaml.v2"
 	"gotest.tools/v3/golden"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -193,6 +195,62 @@ func TestCreateOrUpdateWebConfigSecret(t *testing.T) {
 			golden.Assert(t, string(secret.Data["web-config.yaml"]), tt.golden)
 		})
 	}
+}
+
+func TestBasicAuthUsers(t *testing.T) {
+	tc := []struct {
+		name                string
+		webConfigFileFields monitoringv1.WebConfigFileFields
+	}{
+		{
+			name: "Basic auth users",
+			webConfigFileFields: monitoringv1.WebConfigFileFields{
+				BasicAuthUsers: map[string]string{
+					"user1": "secret1",
+					"user2": "secret2",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tc {
+		t.Run(tt.name, func(t *testing.T) {
+			secretName := "test-secret"
+			ctx := context.TODO()
+			secretClient := fake.NewSimpleClientset().CoreV1().Secrets("default")
+
+			config, err := webconfig.New("/web_certs_path_prefix", secretName, tt.webConfigFileFields)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if err := config.CreateOrUpdateWebConfigSecret(ctx, secretClient, nil, nil, metav1.OwnerReference{}); err != nil {
+				t.Fatal(err)
+			}
+
+			secret, err := secretClient.Get(ctx, secretName, metav1.GetOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			x := struct {
+				BasicAuthUsers map[string]string `yaml:"basic_auth_users,omitempty"`
+			}{}
+
+			if err := yaml.Unmarshal([]byte(secret.Data["web-config.yaml"]), &x); err != nil {
+				t.Fatal(err)
+			}
+			for k, v := range tt.webConfigFileFields.BasicAuthUsers {
+				if !checkPassword(k, v, x.BasicAuthUsers) {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+func checkPassword(username, password string, users map[string]string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(users[username]), []byte(password)) == nil
 }
 
 func TestGetMountParameters(t *testing.T) {
