@@ -144,3 +144,26 @@ func testAgentCheckStorageClass(t *testing.T) {
 		t.Fatalf("%v: %v", err, loopError)
 	}
 }
+
+func testAgentBasicAuthUsers(t *testing.T) {
+	testCtx := framework.NewTestCtx(t)
+	defer testCtx.Cleanup(t)
+
+	ns := framework.CreateNamespace(context.Background(), t, testCtx)
+	framework.SetupPrometheusRBAC(context.Background(), t, testCtx, ns)
+
+	pa := framework.MakeBasicPrometheusAgent(ns, "test", "", 1)
+	// Invalid spec which prevents the creation of the statefulset
+	pa.Spec.Web = &monitoringv1.PrometheusWebSpec{
+		WebConfigFileFields: monitoringv1.WebConfigFileFields{
+			BasicAuthUsers: map[string]string{
+				"user1": "secret1",
+				"user2": "secret2",
+			},
+		},
+	}
+
+	if _, err := framework.CreatePrometheusAgentAndWaitUntilReady(context.Background(), ns, pa); err != nil {
+		t.Fatal(err)
+	}
+}

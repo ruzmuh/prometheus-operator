@@ -314,6 +314,8 @@ func testAllNSPrometheus(t *testing.T) {
 		"ScrapeConfigDNSSD":                         testScrapeConfigDNSSDConfig,
 		"PrometheusWithStatefulsetCreationFailure":  testPrometheusWithStatefulsetCreationFailure,
 		"PrometheusAgentCheckStorageClass":          testAgentCheckStorageClass,
+		"PromBasicAuthUsers":                        testPromBasicAuthUsers,
+		"PromAgentBasicAuthUsers":                   testAgentBasicAuthUsers,
 	}
 
 	for name, f := range testFuncs {

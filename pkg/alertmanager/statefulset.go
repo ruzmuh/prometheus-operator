@@ -334,23 +334,6 @@ func makeStatefulSetSpec(a *monitoringv1.Alertmanager, config Config, tlsAssetSe
 		},
 	}
 
-	// Add an authorization header for probes in case of basicAuthUsers are configured
-	if a.Spec.Web != nil && a.Spec.Web.BasicAuthUsers != nil && len(a.Spec.Web.BasicAuthUsers) != 0 && version.GTE(semver.MustParse("0.22.0")) {
-		var probeHeaders []v1.HTTPHeader
-		for k, v := range a.Spec.Web.BasicAuthUsers {
-			b64 := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", k, v)))
-			probeHeaders = []v1.HTTPHeader{
-				{
-					Name:  "Authorization",
-					Value: fmt.Sprintf("Basic %s", b64),
-				},
-			}
-			break
-		}
-		livenessProbeHandler.HTTPGet.HTTPHeaders = probeHeaders
-		readinessProbeHandler.HTTPGet.HTTPHeaders = probeHeaders
-	}
-
 	var livenessProbe *v1.Probe
 	var readinessProbe *v1.Probe
 	if !a.Spec.ListenLocal {
@@ -371,6 +354,23 @@ func makeStatefulSetSpec(a *monitoringv1.Alertmanager, config Config, tlsAssetSe
 		if isHTTPS {
 			livenessProbe.HTTPGet.Scheme = v1.URISchemeHTTPS
 			readinessProbe.HTTPGet.Scheme = v1.URISchemeHTTPS
+		}
+
+		// Add an authorization header for probes in case of basicAuthUsers are configured
+		if a.Spec.Web != nil && a.Spec.Web.BasicAuthUsers != nil && len(a.Spec.Web.BasicAuthUsers) != 0 && version.GTE(semver.MustParse("0.22.0")) {
+			var probeHeaders []v1.HTTPHeader
+			for k, v := range a.Spec.Web.BasicAuthUsers {
+				b64 := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", k, v)))
+				probeHeaders = []v1.HTTPHeader{
+					{
+						Name:  "Authorization",
+						Value: fmt.Sprintf("Basic %s", b64),
+					},
+				}
+				break
+			}
+			livenessProbe.HTTPGet.HTTPHeaders = probeHeaders
+			readinessProbe.HTTPGet.HTTPHeaders = probeHeaders
 		}
 	}
 
