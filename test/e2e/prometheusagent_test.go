@@ -146,6 +146,7 @@ func testAgentCheckStorageClass(t *testing.T) {
 }
 
 func testAgentBasicAuthUsers(t *testing.T) {
+	t.Parallel()
 	testCtx := framework.NewTestCtx(t)
 	defer testCtx.Cleanup(t)
 

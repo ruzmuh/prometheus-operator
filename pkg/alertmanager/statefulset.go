@@ -697,6 +697,18 @@ func makeStatefulSetSpec(a *monitoringv1.Alertmanager, config Config, tlsAssetSe
 	if isHTTPS {
 		alertmanagerURIScheme = "https"
 	}
+	reloadURL := url.URL{
+		Scheme: alertmanagerURIScheme,
+		Host:   config.LocalHost + ":9093",
+		Path:   path.Clean(webRoutePrefix + "/-/reload"),
+	}
+
+	if a.Spec.Web != nil && a.Spec.Web.BasicAuthUsers != nil && len(a.Spec.Web.BasicAuthUsers) != 0 {
+		for k, v := range a.Spec.Web.BasicAuthUsers {
+			reloadURL.User = url.UserPassword(k, v)
+			break
+		}
+	}
 
 	defaultContainers := []v1.Container{
 		{
@@ -732,11 +744,7 @@ func makeStatefulSetSpec(a *monitoringv1.Alertmanager, config Config, tlsAssetSe
 		operator.CreateConfigReloader(
 			"config-reloader",
 			operator.ReloaderConfig(config.ReloaderConfig),
-			operator.ReloaderURL(url.URL{
-				Scheme: alertmanagerURIScheme,
-				Host:   config.LocalHost + ":9093",
-				Path:   path.Clean(webRoutePrefix + "/-/reload"),
-			}),
+			operator.ReloaderURL(reloadURL),
 			operator.ListenLocal(a.Spec.ListenLocal),
 			operator.LocalHost(config.LocalHost),
 			operator.LogFormat(a.Spec.LogFormat),

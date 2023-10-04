@@ -2574,3 +2574,25 @@ func testAlertmanagerCRDValidation(t *testing.T) {
 		})
 	}
 }
+
+func testAMBasicAuthUsers(t *testing.T) {
+	testCtx := framework.NewTestCtx(t)
+	defer testCtx.Cleanup(t)
+
+	ns := framework.CreateNamespace(context.Background(), t, testCtx)
+	framework.SetupPrometheusRBAC(context.Background(), t, testCtx, ns)
+
+	a := framework.MakeBasicAlertmanager(ns, "test", 1)
+	a.Spec.Web = &monitoringv1.AlertmanagerWebSpec{
+		WebConfigFileFields: monitoringv1.WebConfigFileFields{
+			BasicAuthUsers: map[string]string{
+				"user1": "secret1",
+				"user2": "secret2",
+			},
+		},
+	}
+
+	if _, err := framework.CreateAlertmanagerAndWaitUntilReady(context.Background(), a); err != nil {
+		t.Fatal(err)
+	}
+}

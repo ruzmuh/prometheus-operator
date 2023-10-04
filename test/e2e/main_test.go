@@ -253,6 +253,7 @@ func testAllNSAlertmanager(t *testing.T) {
 		"AMMinReadySeconds":                       testAlertManagerMinReadySeconds,
 		"AMWeb":                                   testAMWeb,
 		"AMTemplateReloadConfig":                  testAMTmplateReloadConfig,
+		"AMBasicAuthUsers":                        testAMBasicAuthUsers,
 	}
 
 	for name, f := range testFuncs {
@@ -316,6 +317,7 @@ func testAllNSPrometheus(t *testing.T) {
 		"PrometheusAgentCheckStorageClass":          testAgentCheckStorageClass,
 		"PromBasicAuthUsers":                        testPromBasicAuthUsers,
 		"PromAgentBasicAuthUsers":                   testAgentBasicAuthUsers,
+		"ThanosWithPromBasicAuthUsers":              testThanosWithPromBasicAuthUsers,
 	}
 
 	for name, f := range testFuncs {

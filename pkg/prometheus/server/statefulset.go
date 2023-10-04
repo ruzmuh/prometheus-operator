@@ -15,6 +15,7 @@
 package prometheus
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"path"
@@ -367,7 +368,7 @@ func makeStatefulSetSpec(
 		prometheusURIScheme = "https"
 	}
 
-	thanosContainer, err := createThanosContainer(&disableCompaction, p, thanos, c, prometheusURIScheme, webRoutePrefix)
+	thanosContainer, err := createThanosContainer(&disableCompaction, p, thanos, c, prometheusURIScheme, webRoutePrefix, webConfigGenerator)
 	if err != nil {
 		return nil, err
 	}
@@ -441,6 +442,16 @@ func makeStatefulSetSpec(
 
 	boolFalse := false
 	boolTrue := true
+
+	reloadURL := url.URL{
+		Scheme: prometheusURIScheme,
+		Host:   c.LocalHost + ":9090",
+		Path:   path.Clean(webRoutePrefix + "/-/reload"),
+	}
+	if ok, username, password := prompkg.GetBasicAuthCreds(cpf.Web, webConfigGenerator); ok {
+		reloadURL.User = url.UserPassword(username, password)
+	}
+
 	operatorContainers := append([]v1.Container{
 		{
 			Name:                     "prometheus",
@@ -465,11 +476,7 @@ func makeStatefulSetSpec(
 		operator.CreateConfigReloader(
 			"config-reloader",
 			operator.ReloaderConfig(c.ReloaderConfig),
-			operator.ReloaderURL(url.URL{
-				Scheme: prometheusURIScheme,
-				Host:   c.LocalHost + ":9090",
-				Path:   path.Clean(webRoutePrefix + "/-/reload"),
-			}),
+			operator.ReloaderURL(reloadURL),
 			operator.ListenLocal(cpf.ListenLocal),
 			operator.LocalHost(c.LocalHost),
 			operator.LogFormat(cpf.LogFormat),
@@ -645,7 +652,8 @@ func createThanosContainer(
 	p monitoringv1.PrometheusInterface,
 	thanos *monitoringv1.ThanosSpec,
 	c *operator.Config,
-	prometheusURIScheme, webRoutePrefix string) (*v1.Container, error) {
+	prometheusURIScheme, webRoutePrefix string,
+	webConfigGenerator *prompkg.ConfigGenerator) (*v1.Container, error) {
 
 	var container *v1.Container
 	cpf := p.GetCommonPrometheusFields()
@@ -671,9 +679,25 @@ func createThanosContainer(
 			httpBindAddress = "127.0.0.1"
 		}
 
+		prometheusHTTPClientConfig := map[string]interface{}{
+			"tls_config": map[string]interface{}{
+				"insecure_skip_verify": true,
+			},
+		}
+		if ok, username, password := prompkg.GetBasicAuthCreds(cpf.Web, webConfigGenerator); ok {
+			prometheusHTTPClientConfig["basic_auth"] = map[string]interface{}{
+				"username": username,
+				"password": password,
+			}
+		}
+		prometheusHTTPClientConfigJSON, err := json.Marshal(prometheusHTTPClientConfig)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed unmarshal prometheusHTTPClientConfig")
+		}
+
 		thanosArgs := []monitoringv1.Argument{
 			{Name: "prometheus.url", Value: fmt.Sprintf("%s://%s:9090%s", prometheusURIScheme, c.LocalHost, path.Clean(webRoutePrefix))},
-			{Name: "prometheus.http-client", Value: `{"tls_config": {"insecure_skip_verify":true}}`},
+			{Name: "prometheus.http-client", Value: string(prometheusHTTPClientConfigJSON)},
 			{Name: "grpc-address", Value: fmt.Sprintf("%s:10901", grpcBindAddress)},
 			{Name: "http-address", Value: fmt.Sprintf("%s:10902", httpBindAddress)},
 		}

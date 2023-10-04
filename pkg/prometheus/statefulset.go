@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -408,16 +409,13 @@ func ProbeHandler(probePath string, cpf monitoringv1.CommonPrometheusFields, web
 		handler.HTTPGet.Scheme = v1.URISchemeHTTPS
 	}
 	// Add an authorization header for probes in case of basicAuthUsers are configured
-	if cpf.Web != nil && cpf.Web.BasicAuthUsers != nil && len(cpf.Web.BasicAuthUsers) != 0 && webConfigGenerator.IsCompatible() {
-		for k, v := range cpf.Web.BasicAuthUsers {
-			b64 := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", k, v)))
-			handler.HTTPGet.HTTPHeaders = []v1.HTTPHeader{
-				{
-					Name:  "Authorization",
-					Value: fmt.Sprintf("Basic %s", b64),
-				},
-			}
-			break
+	if ok, username, password := GetBasicAuthCreds(cpf.Web, webConfigGenerator); ok {
+		b64 := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
+		handler.HTTPGet.HTTPHeaders = []v1.HTTPHeader{
+			{
+				Name:  "Authorization",
+				Value: fmt.Sprintf("Basic %s", b64),
+			},
 		}
 	}
 	return handler
@@ -441,4 +439,22 @@ func BuildPodMetadata(cpf monitoringv1.CommonPrometheusFields, cg *ConfigGenerat
 	}
 
 	return podAnnotations, podLabels
+}
+
+func GetBasicAuthCreds(web *monitoringv1.PrometheusWebSpec, webConfigGenerator *ConfigGenerator) (ok bool, username, password string) {
+	ok = false
+	if web != nil && web.BasicAuthUsers != nil && len(web.BasicAuthUsers) != 0 && webConfigGenerator.IsCompatible() {
+		keys := make([]string, len(web.BasicAuthUsers))
+		i := 0
+		for k := range web.BasicAuthUsers {
+			keys[i] = k
+			i++
+		}
+		sort.Strings(keys)
+		username = keys[0]
+		password = web.BasicAuthUsers[keys[0]]
+		ok = true
+		return
+	}
+	return
 }
